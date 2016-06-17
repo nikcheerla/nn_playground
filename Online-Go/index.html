@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://code.jquery.com/jquery-2.1.4.js"></script>
+<script src="convnet-min.js"></script>
+<script src="util.js"></script>
+<script src="deepqlearn.js"></script>
+<meta name="description" content="Go Game">
+  <meta charset="utf-8">
+  <title>Go AI</title>
+  <link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'>
+  <link rel="stylesheet" type="text/css" href="styles.css">
+</head>
+<body>
+  <canvas id="board"></canvas>
+  <div id="settings-panel">
+    <div class="countdown" id="black-cntdwn">5:00</div>
+    <button id="btn-new-game">New Game</button>
+    <div class="countdown" id="white-cntdwn">5:00</div>
+    <div id="stone-capture-layer">
+      <div class="stone-count" id="black-stone"></div>
+      <div id="captures-text">Number of Captures</div>
+      <div class="stone-count" id="white-stone"></div>
+    </div>
+    <button id="btn-undo">Undo</button>
+    <button id="btn-pass">Pass</button>
+    <button id="btn-redo">Redo</button>
+    <h1> Brain1: </h1>
+    <p id="brain1"> </p>
+    <h1> Brain2: </h1>
+    <p id="brain2"> </p>
+    <div id="gomoku-eval">
+      Credit <strong>Ofek Gila</strong> for GO game code.
+    </div>
+  </div>
+  
+<div id="new-game-menu">
+  
+  <h1>New Game</h1>
+  <form id="form-new-game" action="">
+    Board Size (1 - 80):
+    <input type="number" name="board-size" min="1" max="81" step="2" value="19" required>
+    <br />
+    Handicap (0 - 9):
+    <input type="number" name="handicap" min="0" max="9" step="1" value="0" required>
+    <br />
+    Game Type:
+    <input list="game-types" name="game-types" value="Go">
+    <datalist id="game-types">
+      <option value="Go" selected></option>
+      <option value="Gomoku"></option>
+      <option value="Wu"></option>
+    </datalist>
+    <br />
+    Enter time control (mm:ss):
+    <input id="time-control" name="time-control" type="text" value="5:00">
+    <br />
+    Gomoku Ai? 
+    <input type="checkbox" id="gomoku-ai" name="gomoku-ai">
+    <br />
+    AI Color:
+    <input list="ai-color" name="ai-color" value="Black">
+    <datalist id="ai-color">
+      <option value="Black"></option>
+      <option value="White"></option>
+      <option value="Both"></option>
+    </datalist>
+    <br />
+    AI Depth:
+    <input type="range" name="ai-depth" id="ai-depth" min="1" max="5" step="1" value="2">
+    <br /><br />
+    <input type="submit" value="New Game">
+    <br /><br />
+    <button id="btn-new-game-cancel">Cancel</button>
+  </form>
+</div>
+</body>
+<script src="script.js"></script>
+</html>
