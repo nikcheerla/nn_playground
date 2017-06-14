@@ -29,23 +29,24 @@ y_train = keras.utils.to_categorical(y_train, num_classes)
 y_test = keras.utils.to_categorical(y_test, num_classes)
 
 input_img = Input((32, 32, 3))
-x = Conv2D(32, (3, 3), padding='same', activation='relu', dilation_rate=1) (input_img)
-x = Conv2D(32, (3, 3), padding='same', activation='relu', dilation_rate=1) (input_img)
+x = Conv2D(32, (5, 5), padding='same', activation='relu', dilation_rate=1) (input_img)
+x = Conv2D(32, (5, 5), padding='same', activation='relu', dilation_rate=1) (input_img)
 x = MaxPooling2D(pool_size=(2, 2), strides=(1, 1)) (x)
+x = Dropout(0.5) (x)
 
-x = Conv2D(64, (3, 3), padding='same', activation='relu', dilation_rate=2) (x)
-x = Conv2D(64, (3, 3), padding='same', activation='relu', dilation_rate=2) (x)
-x = MaxPooling2D(pool_size=(2, 2), strides=(1, 1)) (x)
-x = Dropout(0.3) (x)
 
-x = Conv2D(96, (3, 3), padding='same', activation='relu', dilation_rate=4) (x)
-x = Conv2D(64, (3, 3), padding='same', activation='relu', dilation_rate=4) (x)
+x = Conv2D(64, (5, 5), padding='same', activation='relu', dilation_rate=2) (x)
+x = Conv2D(64, (5, 5), padding='same', activation='relu', dilation_rate=2) (x)
 x = MaxPooling2D(pool_size=(2, 2), strides=(1, 1)) (x)
-x = Dropout(0.3) (x)
-x = Conv2D(32, (3, 3), padding='same', activation='relu', dilation_rate=5) (x)
+x = Dropout(0.5) (x)
+
+x = Conv2D(96, (5, 5), padding='same', activation='relu', dilation_rate=4) (x)
+x = Conv2D(64, (5, 5), padding='same', activation='relu', dilation_rate=4) (x)
+x = MaxPooling2D(pool_size=(2, 2), strides=(1, 1)) (x)
+x = Dropout(0.5) (x)
 x = GlobalMaxPooling2D() (x)
 x = Dense(512, activation='sigmoid') (x)
-x = Dropout(0.4) (x)
+x = Dropout(0.5) (x)
 x = Dense(num_classes, activation='softmax') (x)
 
 model = Model(input_img, x)
@@ -57,7 +58,7 @@ opt = keras.optimizers.rmsprop(lr=0.0003, decay=1e-6)
 
 # Let's train the model using RMSprop
 model.compile(loss='categorical_crossentropy',
-              optimizer=opt,
+              optimizer='adadelta',
               metrics=['accuracy'])
 
 x_train = x_train.astype('float32')
@@ -81,7 +82,7 @@ else:
         featurewise_std_normalization=False,  # divide inputs by std of the dataset
         samplewise_std_normalization=False,  # divide each input by its std
         zca_whitening=False,  # apply ZCA whitening
-        rotation_range=10,  # randomly rotate images in the range (degrees, 0 to 180)
+        rotation_range=0,  # randomly rotate images in the range (degrees, 0 to 180)
         width_shift_range=0.1,  # randomly shift images horizontally (fraction of total width)
         height_shift_range=0.1,  # randomly shift images vertically (fraction of total height)
         horizontal_flip=True,  # randomly flip images
