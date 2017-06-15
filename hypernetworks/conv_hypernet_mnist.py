@@ -48,7 +48,7 @@ NUM_LAYERS = 6
 MAX_DILATION = 3
 FILTERS = 32
 KERNEL_SIZE = 3
-DROPOUT_RATE = 0.3
+DROPOUT_RATE = 0.4
 
 
 def one_hot_encode_tensor(layer_num=0, dilation_val=1, num_layers=NUM_LAYERS, max_dilation=MAX_DILATION):
@@ -86,7 +86,7 @@ class HyperNet(nn.Module):
         x = F.tanh(self.conv4(x))
         #print (x.size())
         x = x.view(FILTERS, FILTERS, KERNEL_SIZE, KERNEL_SIZE)
-        x = x.permute(0, 1, 2, 3) * 0.1
+        x = x.permute(0, 1, 2, 3) * 0.8
         #print ("Weight1 mean: ", self.fc1._parameters['weight'].mean().data.numpy())
         #print ("Weight2 mean: ", self.fc2._parameters['weight'].mean().data.numpy())
         #print ("Activation mean: ", x.mean().data.numpy())
@@ -104,7 +104,10 @@ class Net(nn.Module):
         self.conv2 = nn.Conv2d(FILTERS, FILTERS, kernel_size=KERNEL_SIZE, padding=(1, 1))
         self.conv3 = nn.Conv2d(FILTERS, FILTERS, kernel_size=KERNEL_SIZE, padding=(1, 1))
         self.conv4 = nn.Conv2d(FILTERS, FILTERS, kernel_size=KERNEL_SIZE, padding=(1, 1))
-        self.fc = nn.Linear(32, 10)
+        self.conv5 = nn.Conv2d(FILTERS, FILTERS, kernel_size=KERNEL_SIZE, padding=(1, 1))
+        self.conv6 = nn.Conv2d(FILTERS, FILTERS, kernel_size=KERNEL_SIZE, padding=(1, 1))
+        self.fc1 = nn.Linear(32, 512)
+        self.fc2 = nn.Linear(512, 10)
 
         if torch.cuda.is_available():
             self.hypernet.cuda()
@@ -125,21 +128,22 @@ class Net(nn.Module):
         conv5_weights = self.hypernet(one_hot_encode_tensor(layer_num=4, dilation_val=3))
         conv6_weights = self.hypernet(one_hot_encode_tensor(layer_num=5, dilation_val=3))
 
-        x = F.relu(F.conv2d(x, conv1_weights, bias=self.conv1._parameters['bias'], padding=1, dilation=1))
-        x = F.relu(F.conv2d(x, conv2_weights, bias=self.conv2._parameters['bias'], padding=1, dilation=1))
-        x = F.dropout(x, p=0.3, training=self.training)
+        x = F.relu(F.conv2d(x, self.conv1._parameters['weight'], bias=self.conv1._parameters['bias'], padding=1, dilation=1))
+        x = F.relu(F.conv2d(x, self.conv2._parameters['weight'], bias=self.conv2._parameters['bias'], padding=1, dilation=1))
+        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
         x = F.max_pool2d(x, 2, stride=1)
 
-        x = F.relu(F.conv2d(x, conv3_weights, bias=self.conv3._parameters['bias'], padding=1, dilation=2))
-        x = F.relu(F.conv2d(x, conv4_weights, bias=self.conv4._parameters['bias'], padding=1, dilation=2))
-        x = F.max_pool2d(x, 2, stride=1)
-        x = F.relu(F.conv2d(x, conv5_weights, bias=None, padding=1, dilation=4))
-        x = F.relu(F.conv2d(x, conv6_weights, bias=None, padding=1, dilation=4))
+        x = F.relu(F.conv2d(x, self.conv3._parameters['weight'], bias=self.conv3._parameters['bias'], padding=1, dilation=2))
+        x = F.relu(F.conv2d(x, self.conv4._parameters['weight'], bias=self.conv4._parameters['bias'], padding=1, dilation=2))
+        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
+        #x = F.max_pool2d(x, 2, stride=1)
+        #x = F.relu(F.conv2d(x, self.conv5._parameters['weight'], bias=self.conv5._parameters['bias'], padding=1, dilation=4))
+        #x = F.relu(F.conv2d(x, self.conv6._parameters['weight'], bias=self.conv6._parameters['bias'], padding=1, dilation=4))
         x = F.max_pool2d(x, x.size(2), stride=1)
 
         x = x.view(x.size(0), -1)
-        x = F.dropout(x, p=0.4, training=self.training)
-        x = self.fc(x)
+        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
+        x = F.softmax(self.fc2(F.sigmoid(self.fc1(x))))
         return x
 
 net = Net()
@@ -159,6 +163,6 @@ model.compile(loss=F.cross_entropy,
 
 model.summary([1, 28, 28])
 
-model.fit(X_train, Y_train, batch_size=128, nb_epoch=5, verbose=1, val_data=(X_test, Y_test), cuda_device=-1)
+model.fit(X_train, Y_train, batch_size=8, nb_epoch=20, verbose=1, val_data=(X_test, Y_test), cuda_device=0)
 
 #IPython.embed()
