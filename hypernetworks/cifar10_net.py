@@ -29,24 +29,21 @@ y_train = keras.utils.to_categorical(y_train, num_classes)
 y_test = keras.utils.to_categorical(y_test, num_classes)
 
 input_img = Input((32, 32, 3))
-x = Conv2D(32, (5, 5), padding='same', activation='relu', dilation_rate=1) (input_img)
-x = Conv2D(32, (5, 5), padding='same', activation='relu', dilation_rate=1) (input_img)
-x = MaxPooling2D(pool_size=(2, 2), strides=(1, 1)) (x)
-x = Dropout(0.5) (x)
+x = Conv2D(32, (5, 5), padding='same', activation='relu') (input_img)
+x = Conv2D(32, (5, 5), padding='same', activation='relu') (x)
+x = MaxPooling2D(pool_size=(2, 2), strides=(1, 1), padding='same') (x)
 
-
-x = Conv2D(64, (5, 5), padding='same', activation='relu', dilation_rate=2) (x)
-x = Conv2D(64, (5, 5), padding='same', activation='relu', dilation_rate=2) (x)
-x = MaxPooling2D(pool_size=(2, 2), strides=(1, 1)) (x)
-x = Dropout(0.5) (x)
-
-x = Conv2D(96, (5, 5), padding='same', activation='relu', dilation_rate=4) (x)
-x = Conv2D(64, (5, 5), padding='same', activation='relu', dilation_rate=4) (x)
-x = MaxPooling2D(pool_size=(2, 2), strides=(1, 1)) (x)
-x = Dropout(0.5) (x)
-x = GlobalMaxPooling2D() (x)
-x = Dense(512, activation='sigmoid') (x)
-x = Dropout(0.5) (x)
+x = Conv2D(64, (4, 4), padding='same', activation='relu', dilation_rate=2) (x)
+x = Conv2D(64, (4, 4), padding='same', activation='relu', dilation_rate=2) (x)
+x = MaxPooling2D(pool_size=(2, 2), strides=(1, 1), padding='same') (x)
+x = Dropout(0.3) (x)
+x = Conv2D(64, (3, 3), padding='same', activation='relu', dilation_rate=4) (x)
+x = Conv2D(64, (3, 3), padding='same', activation='relu', dilation_rate=4) (x)
+x = MaxPooling2D(pool_size=(2, 2), strides=(1, 1), padding='same') (x)
+x = Dropout(0.3) (x)
+x = Conv2D(32, (1, 1), padding='same', activation='tanh') (x)
+x = GlobalMaxPooling2D() (x=x = Dense(256) (x)
+x = Dropout(0.4) (x)
 x = Dense(num_classes, activation='softmax') (x)
 
 model = Model(input_img, x)
@@ -54,7 +51,7 @@ model = Model(input_img, x)
 model.summary()
 
 # initiate RMSprop optimizer
-opt = keras.optimizers.rmsprop(lr=0.0003, decay=1e-6)
+opt = keras.optimizers.sgd(lr=4e-3, decay=1e-6, momentum=0.88) 
 
 # Let's train the model using RMSprop
 model.compile(loss='categorical_crossentropy',

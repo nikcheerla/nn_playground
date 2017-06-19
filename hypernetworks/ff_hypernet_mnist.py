@@ -39,8 +39,8 @@ print ('Y_train shape:', Y_train.shape)
 print (X_train.shape[0], 'train samples')
 print (X_test.shape[0], 'test samples')
 
-X_train, X_test = torch.Tensor(X_train).float(), torch.Tensor(X_test).float()
-Y_train, Y_test = torch.Tensor(Y_train).long(), torch.Tensor(Y_test).long()
+X_train, X_test = torch.Tensor(X_train).float().cuda(), torch.Tensor(X_test).float().cuda()
+Y_train, Y_test = torch.Tensor(Y_train).long().cuda(), torch.Tensor(Y_test).long().cuda()
 
 
 def one_hot_encode_tensor(num, max_size=4):

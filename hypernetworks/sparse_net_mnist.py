@@ -51,24 +51,57 @@ KERNEL_SIZE = 3
 DROPOUT_RATE = 0.4
 
 
-def one_hot_encode_tensor(layer_num=0, dilation_val=1, num_layers=NUM_LAYERS, max_dilation=MAX_DILATION):
-    #Constant variable array
-    array = np.zeros((1, num_layers+max_dilation))
-    array[0, layer_num] = 1
-    array[0, (num_layers - 1):(num_layers + dilation_val - 1)] = 1
-    array = Variable(torch.Tensor(array).float(), requires_grad=False)
 
-    return array
+
+
+class ConvolutionNode():
+     def __init__(self, dilation_rate=1, kernel_size=3, activation=F.relu):
+        super(ConvolutionNode, self).__init__()
+        self.activation = activation
+        self.dilation_rate = dilation_rate
+        self.kernel_size = kernel_size
+        self.conv1 = nn.Conv2d(1, 1, kernel_size=kernel_size, dilation_rate=dilation_rate)
+        self.cache_tensor = None
+        
+    def forward(self, x):
+
+        if torch.cuda.is_available():
+            x = x.cuda()
+
+        batch_size, width, height = x.size(0), x.size(1), x.size(2)
+        x = x.view(batch_size, 1, width, height)
+        x = self.activation(self.conv1(x))
+        width_new, height_new = x.size(2), x.size(3)
+        xd, yd = width - width_new, height - height_new
+        x = F.pad(x, (xd//2, xd - xd//2, yd//2, yd - yd//2), mode='reflect')
+        x = x.view(batch_size, width, height)
+        self.cache_tensor = x
+
+        return x
+
+    @classmethod
+    def key(cls, node):
+        return (node.dilation_rate, node.kernel_size)
+
+
 
 class HyperNet(nn.Module):
     def __init__(self):
         super(HyperNet, self).__init__()
 
+        self.sparse_nodes = []
+        for i in range(0, 200):
+            dilation_rate = random.choice([1, 2, 4, 6], probs=[0.25, 0.3, 0.3, 0.15])
+            kernel_size = random.choice([3, 5], probs=[0.75, 0.25])
+            self.sparse_nodes.append(ConvolutionNode(dilation_rate=dilation_rate, kernel_size=kernel_size))
+        self.sparse_nodes = sorted(self.sparse_nodes, key=ConvolutionNode.key)
+        self.sparse_nodes = nn.ModuleList(self.sparse_nodes)
+        self.N = len(self.sparse_nodes)
+
+        self.connectivity_matrix = np.zeros((self.N, self.N))
+        self.mask = np.zeros((self.N, self.N))
+
         self.fc1 = nn.Linear(NUM_LAYERS + MAX_DILATION, FILTERS*FILTERS//32)
-        self.conv1 = nn.Conv2d(2, 4, kernel_size=(3, 3), padding=(1, 1))
-        self.conv2 = nn.Conv2d(4, 6, kernel_size=(3, 3), padding=(1, 1))
-        self.conv3 = nn.Conv2d(6, 8, kernel_size=(3, 3), padding=(1, 1))
-        self.conv4 = nn.Conv2d(8, KERNEL_SIZE*KERNEL_SIZE, kernel_size=(3, 3), padding=(1, 1))
         
     def forward(self, x):
 

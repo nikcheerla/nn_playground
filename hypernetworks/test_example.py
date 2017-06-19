@@ -63,7 +63,7 @@ NUM_LAYERS = 6
 MAX_DILATION = 3
 FILTERS = 32
 KERNEL_SIZE = 3
-DROPOUT_RATE = 0.35
+DROPOUT_RATE = 0
 
 
 def one_hot_encode_tensor(layer_num=0, dilation_val=1, num_layers=NUM_LAYERS, max_dilation=MAX_DILATION):
@@ -74,6 +74,13 @@ def one_hot_encode_tensor(layer_num=0, dilation_val=1, num_layers=NUM_LAYERS, ma
     array = Variable(torch.Tensor(array).float(), requires_grad=False)
 
     return array
+
+
+class ConvolutionNode(nn.Module):
+    def __init__(self, kernel_size, dilation_rate, num_inputs=4):
+        self.kernel_size = kernel_size
+        self.dilation_rate = dilation_rate
+        self.layer = nn.Conv2d(1, )
 
 
 #Net contains a hypernet which parametrizes conv layers
@@ -87,7 +94,8 @@ class Net(nn.Module):
         self.conv3 = nn.Conv2d(FILTERS, FILTERS, kernel_size=KERNEL_SIZE, padding=(1, 1))
         self.conv4 = nn.Conv2d(FILTERS, FILTERS, kernel_size=KERNEL_SIZE, padding=(1, 1))
         self.conv5 = nn.Conv2d(FILTERS, FILTERS, kernel_size=KERNEL_SIZE, padding=(1, 1))
-        self.fc1 = nn.Linear(32, 10)
+        self.fc1 = nn.Linear(32, 512)
+        self.fc2 = nn.Linear(512, 10)
 
         if torch.cuda.is_available():
             self.cuda()
@@ -111,25 +119,28 @@ class Net(nn.Module):
         x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
         x = F.max_pool2d(x, 2, stride=1)
         
-        x = F.relu(F.conv2d(x, self.conv4._parameters['weight'], bias=self.conv4._parameters['bias'], padding=8, dilation=8))
-        x = F.max_pool2d(x, 2, stride=1)
+        #x = F.relu(F.conv2d(x, self.conv4._parameters['weight'], bias=self.conv4._parameters['bias'], padding=8, dilation=8))
+        #x = F.max_pool2d(x, 2, stride=1)
 
         x = F.relu(F.conv2d(x, self.conv5._parameters['weight'], bias=self.conv5._parameters['bias'], padding=8, dilation=8))
+        print (x.size())
         x1 = F.max_pool2d(x, x.size(2)).view(x.size(0), -1)
         x2 = x.mean(2).mean(3).view(x.size(0), -1)
-        x = x1 + x2
+        x = x1 + x2 
 
         x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
-        x = F.softmax(self.fc1(x))
+        x = F.log_softmax(self.fc2(F.sigmoid(self.fc1(x))))
         return x
 
 # Define your model EXACTLY as if you were using nn.Module
 class Net2(nn.Module):
     def __init__(self):
         super(Net2, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3)
-        self.fc1 = nn.Linear(1600, 128)
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=5, padding=2) 
+        self.conv2 = nn.Conv2d(32, 32, kernel_size=5, padding=2)
+        self.conv3 = nn.Conv2d(32, 32, kernel_size=3, padding=1)
+        #self.conv4 = nn.Conv2d(32, 32, kernel_size=3, padding=1)
+        self.fc1 = nn.Linear(288, 128)
         self.fc2 = nn.Linear(128, 10)
 
     def forward(self, x):
@@ -138,8 +149,33 @@ class Net2(nn.Module):
             x = x.cuda()
 
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
         x = F.relu(F.max_pool2d(self.conv2(x), 2))
-        x = x.view(-1, 1600)
+        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
+        x = F.relu(F.max_pool2d(self.conv3(x), 2))
+        x = x.view(x.size(0), -1)
+        #print (x.size())
+        x = F.relu(self.fc1(x))
+        x = F.dropout(x, training=self.training)
+        x = self.fc2(x)
+        return F.log_softmax(x)
+
+
+# Define your model EXACTLY as if you were using nn.Module
+class Net3(nn.Module):
+    def __init__(self):
+        super(Net3, self).__init__()
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=5)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=5)
+        self.fc1 = nn.Linear(256, 128)
+        self.fc2 = nn.Linear(128, 10)
+
+    def forward(self, x):
+    	x = x.cuda()
+        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.relu(F.max_pool2d(self.conv2(x), 2))
+        x = F.max_pool2d(x, 2)
+        x = x.view(-1, 256)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
@@ -147,7 +183,7 @@ class Net2(nn.Module):
 
 
 model = Net()
-#model = model.cuda(0)
+model = model.cuda(0)
 trainer = ModuleTrainer(model)
 
 callbacks = [EarlyStopping(patience=10),
@@ -159,7 +195,7 @@ constraints = [UnitNorm(frequency=3, unit='batch', module_filter='fc*'),
 initializers = [XavierUniform(bias=False, module_filter='fc*')]
 metrics = [CategoricalAccuracy(top_k=1)]
 
-trainer.compile(loss=F.cross_entropy,
+trainer.compile(loss='nll_loss',
                 optimizer='adadelta',
                 regularizers=regularizers,
                 constraints=constraints,
@@ -171,6 +207,6 @@ print(summary)
 
 trainer.fit(x_train, y_train, 
           val_data=(x_test, y_test),
-          nb_epoch=20, 
+          nb_epoch=40, 
           batch_size=32,
-          verbose=1, cuda_device=-1)
+          verbose=1, cuda_device=0)

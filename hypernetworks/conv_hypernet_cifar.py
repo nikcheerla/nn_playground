@@ -36,80 +36,69 @@ print('x_train shape:', X_train.shape)
 print(X_train.shape[0], 'train samples')
 print(X_test.shape[0], 'test samples')
 
+X_train = X_train.astype('float32')/255.0
+X_test = X_test.astype('float32')/255.0
+
+Y_train, Y_test = 1.0*Y_train, 1.0*Y_test
 X_train, X_test = torch.Tensor(X_train).float().cuda(), torch.Tensor(X_test).float().cuda()
 Y_train, Y_test = torch.Tensor(Y_train).long().cuda(), torch.Tensor(Y_test).long().cuda()
 
 
-def one_hot_encode_tensor(num, max_size=4):
-    #Constant variable array
-    array = Variable(torch.Tensor(np.zeros((1, max_size))).float(), requires_grad=False)
-    array[0, num] = 1
-    return array
-
-
-class HyperNet(nn.Module):
-    def __init__(self):
-        super(HyperNet, self).__init__()
-
-        self.fc1 = nn.Linear(4, 32)
-        self.conv1 = nn.Conv2d(2, 4, kernel_size=(3, 3), padding=(1, 1))
-        self.conv2 = nn.Conv2d(4, 8, kernel_size=(3, 3), padding=(1, 1))
-        self.conv3 = nn.Conv2d(8, 8, kernel_size=(3, 3), padding=(1, 1))
-        self.conv4 = nn.Conv2d(8, 1, kernel_size=(3, 3), padding=(1, 1))
-        
-    def forward(self, x):
-        x = x.cuda()
-        x = F.tanh(self.fc1(x))
-        x = x.view(1, 2, 4, 4)
-        x = F.dropout(F.relu(self.conv1(x)), p=0.3, training=self.training)
-        #print (x.size())
-        x = F.upsample_bilinear(x, scale_factor=3)
-        x = F.dropout(F.relu(self.conv2(x)), p=0.3, training=self.training)
-        x = F.upsample_bilinear(x, scale_factor=2)
-        x = F.dropout(F.relu(self.conv3(x)), p=0.3, training=self.training)
-        x = F.upsample_bilinear(x, scale_factor=2)
-        x = F.tanh(self.conv4(x))
-        #print (x.size())
-        x = x.view(16, 3, 16, 3)
-        x = x.permute(0, 2, 1, 3) * 0.1
-        #print ("Weight1 mean: ", self.fc1._parameters['weight'].mean().data.numpy())
-        #print ("Weight2 mean: ", self.fc2._parameters['weight'].mean().data.numpy())
-        #print ("Activation mean: ", x.mean().data.numpy())
-        return x
+NUM_LAYERS = 6
+MAX_DILATION = 3
+FILTERS = 32
+KERNEL_SIZE = 3
+DROPOUT_RATE = 0.4
 
 #Net contains a hypernet which parametrizes conv layers
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.hypernet = HyperNet().cuda()
-        self.input = nn.Conv2d(1, 16, kernel_size=(1, 1))
+        #self.hypernet = HyperNet().cuda()
 
-        self.conv1 = nn.Conv2d(16, 16, kernel_size=(3, 3), padding=(1, 1))
-        self.conv2 = nn.Conv2d(16, 16, kernel_size=(3, 3), padding=(1, 1))
-        self.conv3 = nn.Conv2d(16, 16, kernel_size=(3, 3), padding=(1, 1))
-        self.conv4 = nn.Conv2d(16, 16, kernel_size=(3, 3), padding=(1, 1))
-        self.fc = nn.Linear(16*7*7, 10)
+        self.conv1 = nn.Conv2d(3, 16, kernel_size=(3, 3), padding=(1, 1))
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=(3, 3), padding=(1, 1))
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=(3, 3), padding=(1, 1))
+        self.conv4 = nn.Conv2d(64, 64, kernel_size=(3, 3), padding=(1, 1))
+        self.conv5 = nn.Conv2d(64, 64, kernel_size=(3, 3), padding=(1, 1))
+        self.conv6 = nn.Conv2d(64, 64, kernel_size=(3, 3), padding=(1, 1))
+        self.conv7 = nn.Conv2d(64, 32, kernel_size=(1, 1))
+        self.fc = nn.Linear(32, 256)
+        self.out = nn.Linear(256, 10)
         
     def forward(self, x):
         x = x.cuda()
-        x = self.input(x)
+        print (x.size())
 
-        self.hypernet.training = self.training
-        conv1_weights = self.hypernet(one_hot_encode_tensor(0))
-        conv2_weights = self.hypernet(one_hot_encode_tensor(1))
-        conv3_weights = self.hypernet(one_hot_encode_tensor(2))
-        conv4_weights = self.hypernet(one_hot_encode_tensor(3))
+        IPython.embed()
 
-        x = F.relu(F.conv2d(x, conv1_weights, bias=self.conv1._parameters['bias'], padding=1))
-        x = F.relu(F.conv2d(x, conv2_weights, bias=self.conv2._parameters['bias'], padding=1))
-        x = F.dropout(x, p=0.3, training=self.training)
-        x = F.max_pool2d(x, 2)
-        x = F.relu(F.conv2d(x, conv3_weights, bias=self.conv3._parameters['bias'], padding=1))
-        x = F.relu(F.conv2d(x, conv4_weights, bias=self.conv4._parameters['bias'], padding=1))
-        x = F.max_pool2d(x, 2)
+        #self.hypernet.training = self.training
+        #conv1_weights = self.hypernet(one_hot_encode_tensor(0))
+        #conv2_weights = self.hypernet(one_hot_encode_tensor(1))
+        #conv3_weights = self.hypernet(one_hot_encode_tensor(2))
+        #conv4_weights = self.hypernet(one_hot_encode_tensor(3))
+
+        x = F.relu(self.conv1(x))
+        x = F.relu(F.conv2d(x, self.conv2._parameters['weight'], bias=self.conv2._parameters['bias'], padding=1, dilation=1))
+        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
+        x = F.max_pool2d(x, 2, stride=1)
+
+        x = F.relu(F.conv2d(x, self.conv3._parameters['weight'], bias=self.conv3._parameters['bias'], padding=1, dilation=2))
+        x = F.relu(F.conv2d(x, self.conv4._parameters['weight'], bias=self.conv4._parameters['bias'], padding=1, dilation=2))
+        x = F.dropout(x, p=DROPOUT_RATE, training=self.training)
+        x = F.max_pool2d(x, 2, stride=1)
+
+        x = F.relu(F.conv2d(x, self.conv5._parameters['weight'], bias=self.conv5._parameters['bias'], padding=1, dilation=4))
+        x = F.relu(F.conv2d(x, self.conv6._parameters['weight'], bias=self.conv6._parameters['bias'], padding=1, dilation=4))
+        x = F.max_pool2d(x, 2, stride=1)
+        x = F.tanh(F.conv2d(x, self.conv7._parameters['weight'], bias=self.conv7._parameters['bias'], padding=1, dilation=1))
+
+        x = F.max_pool2d(x, x.size(2))
         x = x.view(x.size(0), -1)
-        x = F.dropout(x, p=0.4, training=self.training)
-        x = self.fc(x)
+
+        x = F.sigmoid(self.fc(x))
+        x = F.softmax(self.out(x))
+
         return x
 
 net = Net().cuda()
@@ -124,11 +113,11 @@ callbacks = [EarlyStopping(patience=10),
 metrics = [CategoricalAccuracy()]
 
 model.compile(loss=F.cross_entropy,
-                optimizer='adadelta',
+                optimizer='rmsprop',
                 metrics=metrics)
 
-model.summary([1, 28, 28])
+#model.summary([1, 32, 32])
 
-model.fit(X_train, Y_train, batch_size=128, nb_epoch=5, verbose=1, val_data=(X_test, Y_test), cuda_device=0)
+model.fit(X_train, Y_train, batch_size=1, nb_epoch=20, verbose=1, val_data=(X_test, Y_test), cuda_device=0)
 
 #IPython.embed()
