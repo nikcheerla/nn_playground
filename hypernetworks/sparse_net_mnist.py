@@ -101,7 +101,13 @@ class HyperNet(nn.Module):
         self.connectivity_matrix = np.zeros((self.N, self.N))
         self.mask = np.zeros((self.N, self.N))
 
-        self.fc1 = nn.Linear(NUM_LAYERS + MAX_DILATION, FILTERS*FILTERS//32)
+        for i in range(0, self.N):
+            for j in range(0, i-1):
+                self.mask[i, j] = 1
+                self.connectivity_matrix[i, j] = random.random()
+
+        self.fc1 = nn.Linear(self.N, 128)
+        self.fc2 = nn.Linear(128, 10)
         
     def forward(self, x):
 

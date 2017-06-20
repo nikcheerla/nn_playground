@@ -44,23 +44,45 @@ print (X_test.shape[0], 'test samples')
 X_train, X_test = torch.Tensor(X_train).float(), torch.Tensor(X_test).float()
 Y_train, Y_test = torch.Tensor(Y_train).long(), torch.Tensor(Y_test).long()
 
+
+class Convolution(nn.Module):
+    def __init__(self, output_features=4, kernel_size=3, padding=1, activation=F.relu):
+        super(Convolution, self).__init__()
+        self.activation = activation
+        self.output_features = output_features
+        self.kernel_size = kernel_size
+        self.conv = nn.Conv2d(1, output_features, kernel_size=kernel_size, padding=padding)
+        self.cache_tensor = None
+    
+    def forward(self, x):
+        
+        accum = self.conv(x[:, 0:1, :, :])
+        for i in range(1, x.size(1)):
+            data = self.conv(x[:, i:(i+1), :, :])
+            accum = accum + data
+        accum = self.activation(accum)
+        return accum
+
+
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.input = nn.Conv2d(1, 16, kernel_size=(1, 1))
-        self.conv1 = nn.Conv2d(16, 16, kernel_size=(3, 3), padding=(1, 1))
-        self.conv2 = nn.Conv2d(16, 16, kernel_size=(3, 3), padding=(1, 1))
-        self.conv3 = nn.Conv2d(16, 16, kernel_size=(3, 3), padding=(1, 1))
-        self.conv4 = nn.Conv2d(16, 16, kernel_size=(3, 3), padding=(1, 1))
+        self.conv1 = Convolution(output_features=32, kernel_size=3, activation=F.relu)
+        self.conv2 = Convolution(output_features=64, kernel_size=3, activation=F.relu)
+        self.conv3 = Convolution(output_features=64, kernel_size=3, activation=F.relu)
+        self.conv4 = Convolution(output_features=16, kernel_size=3, activation=F.relu)
         self.fc = nn.Linear(16*7*7, 10)
         
     def forward(self, x):
-        x = self.input(x)
-        x = F.relu(F.conv2d(x, self.conv1._parameters['weight'], bias=self.conv1._parameters['bias'], padding=1))
-        x = F.relu(F.conv2d(x, self.conv2._parameters['weight'], bias=self.conv2._parameters['bias'], padding=1))
+
+        if torch.cuda.is_available():
+            x = x.cuda()
+        
+        x = self.conv1(x)
+        x = self.conv2(x)
         x = F.max_pool2d(x, 2)
-        x = F.relu(F.conv2d(x, self.conv3._parameters['weight'], bias=self.conv3._parameters['bias'], padding=1))
-        x = F.relu(F.conv2d(x, self.conv4._parameters['weight'], bias=self.conv4._parameters['bias'], padding=1))
+        x = self.conv3(x)
+        x = self.conv4(x)
         x = F.max_pool2d(x, 2)
         x = x.view(x.size(0), -1)
         x = self.fc(x)
